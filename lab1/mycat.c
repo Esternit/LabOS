@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define MAX_LINE_LENGTH 1024
 
@@ -80,6 +81,11 @@ int main(int argc, char *argv[])
 
     if (i >= argc)
     {
+        if (isatty(STDIN_FILENO))
+        {
+            fprintf(stderr, "mycat: waiting for input from stdin... (Press Ctrl+D to end)\n");
+        }
+
         char line[MAX_LINE_LENGTH];
         int line_num = 1;
 
