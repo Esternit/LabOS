@@ -4,6 +4,49 @@
 
 #define MAX_LINE_LENGTH 1024
 
+void process_line(char *line, int *line_num, int show_numbers, int show_nonempty_only, int show_eol)
+{
+    size_t len = strlen(line);
+    int is_empty = (len == 1 && line[0] == '\n');
+
+    if (show_nonempty_only && is_empty)
+    {
+        if (show_eol && len > 0 && line[len - 1] == '\n')
+        {
+            line[len - 1] = '\0';
+            printf("%s$\n", line);
+        }
+        else if (show_eol)
+        {
+            printf("%s$", line);
+        }
+        else
+        {
+            fputs(line, stdout);
+        }
+        return;
+    }
+
+    if (show_numbers)
+    {
+        printf("%6d\t", (*line_num)++);
+    }
+
+    if (show_eol && len > 0 && line[len - 1] == '\n')
+    {
+        line[len - 1] = '\0';
+        printf("%s$\n", line);
+    }
+    else if (show_eol)
+    {
+        printf("%s$", line);
+    }
+    else
+    {
+        fputs(line, stdout);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int show_numbers = 0;       // Это для флага n
@@ -42,45 +85,7 @@ int main(int argc, char *argv[])
 
         while (fgets(line, MAX_LINE_LENGTH, stdin))
         {
-            size_t len = strlen(line);
-            int is_empty = (len == 1 && line[0] == '\n');
-
-            if (show_nonempty_only && is_empty)
-            {
-                if (show_eol && len > 0 && line[len - 1] == '\n')
-                {
-                    line[len - 1] = '\0';
-                    printf("%s$\n", line);
-                }
-                else if (show_eol)
-                {
-                    printf("%s$", line);
-                }
-                else
-                {
-                    fputs(line, stdout);
-                }
-                continue;
-            }
-
-            if (show_numbers)
-            {
-                printf("%6d\t", line_num++);
-            }
-
-            if (show_eol && len > 0 && line[len - 1] == '\n')
-            {
-                line[len - 1] = '\0';
-                printf("%s$\n", line);
-            }
-            else if (show_eol)
-            {
-                printf("%s$", line);
-            }
-            else
-            {
-                fputs(line, stdout);
-            }
+            process_line(line, &line_num, show_numbers, show_nonempty_only, show_eol);
         }
     }
     else
@@ -99,45 +104,7 @@ int main(int argc, char *argv[])
 
             while (fgets(line, MAX_LINE_LENGTH, fp))
             {
-                size_t len = strlen(line);
-                int is_empty = (len == 1 && line[0] == '\n');
-
-                if (show_nonempty_only && is_empty)
-                {
-                    if (show_eol && len > 0 && line[len - 1] == '\n')
-                    {
-                        line[len - 1] = '\0';
-                        printf("%s$\n", line);
-                    }
-                    else if (show_eol)
-                    {
-                        printf("%s$", line);
-                    }
-                    else
-                    {
-                        fputs(line, stdout);
-                    }
-                    continue;
-                }
-
-                if (show_numbers)
-                {
-                    printf("%6d\t", line_num++);
-                }
-
-                if (show_eol && len > 0 && line[len - 1] == '\n')
-                {
-                    line[len - 1] = '\0';
-                    printf("%s$\n", line);
-                }
-                else if (show_eol)
-                {
-                    printf("%s$", line);
-                }
-                else
-                {
-                    fputs(line, stdout);
-                }
+                process_line(line, &line_num, show_numbers, show_nonempty_only, show_eol);
             }
 
             fclose(fp);
