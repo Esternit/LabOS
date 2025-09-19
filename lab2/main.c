@@ -13,7 +13,7 @@
 #define COLOR_RESET "\033[0m"
 
 
-int show_all = 0; //параметр -a
+int show_all = 0; // параметр -a
 int long_format = 0; //параметр -l
 
 typedef struct {
