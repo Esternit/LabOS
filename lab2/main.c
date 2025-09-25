@@ -41,7 +41,6 @@ char *get_username(uid_t uid)
     return buf;
 }
 
-// Получение имени группы
 char *get_groupname(gid_t gid)
 {
     struct group *gr = getgrgid(gid);
@@ -58,7 +57,6 @@ void format_time(time_t t, char *buf)
     double diff = difftime(now, t);
     struct tm *tm = localtime(&t);
 
-    // Если файл старше 6 месяцев (~180 дней = 15552000 сек)
     if (diff > 15552000 || diff < -15552000)
     {
         strftime(buf, 20, "%b %d  %Y", tm);
@@ -75,8 +73,7 @@ void print_long_entry(FileEntry *entry)
     mode_t mode = entry->st.st_mode;
 
     char perms[11];
-    perms[0] = (S_ISDIR(mode)) ? 'd' : (S_ISLNK(mode)) ? 'l'
-                                                       : '-';
+    perms[0] = (S_ISDIR(mode)) ? 'd' : (S_ISLNK(mode)) ? 'l' : '-';
     perms[1] = (mode & S_IRUSR) ? 'r' : '-';
     perms[2] = (mode & S_IWUSR) ? 'w' : '-';
     perms[3] = (mode & S_IXUSR) ? 'x' : '-';
@@ -88,59 +85,34 @@ void print_long_entry(FileEntry *entry)
     perms[9] = (mode & S_IXOTH) ? 'x' : '-';
     perms[10] = '\0';
 
-    char *color = "";
-    if (S_ISDIR(mode))
-    {
-        color = COLOR_DIR;
-    }
-    else if (S_ISLNK(mode))
-    {
-        color = COLOR_LINK;
-    }
-    else if (mode & S_IXUSR || mode & S_IXGRP || mode & S_IXOTH)
-    {
-        color = COLOR_EXEC;
-    }
-
-    printf("%s%s", color, perms);
-    printf(" %3ld", (long)entry->st.st_nlink);
+    printf("%s", perms);
+    printf(" %2ld", (long)entry->st.st_nlink);
 
     char *user = get_username(entry->st.st_uid);
     char *group = get_groupname(entry->st.st_gid);
-    printf(" %-8s %-8s", user, group);
+    printf(" %s %s", user, group);
 
-    printf(" %8ld ", (long)entry->st.st_size);
+    printf(" %7ld ", (long)entry->st.st_size);
 
     format_time(entry->st.st_mtime, time_buf);
-    printf("%s %s", time_buf, entry->name);
+    printf("%s ", time_buf);
+
+    char *color = "";
+    if (S_ISDIR(mode))
+        color = COLOR_DIR;
+    else if (S_ISLNK(mode))
+        color = COLOR_LINK;
+    else if (mode & S_IXUSR || mode & S_IXGRP || mode & S_IXOTH)
+        color = COLOR_EXEC;
+
+    printf("%s%s%s", color, entry->name, COLOR_RESET);
 
     if (S_ISLNK(mode) && entry->link_target[0] != '\0')
     {
-        printf(" -> %s", entry->link_target);
+        printf(" -> %s%s%s", COLOR_LINK, entry->link_target, COLOR_RESET);
     }
 
-    printf("%s\n", COLOR_RESET);
-}
-
-void print_simple_entry(FileEntry *entry)
-{
-    char *color = "";
-    mode_t mode = entry->st.st_mode;
-
-    if (S_ISDIR(mode))
-    {
-        color = COLOR_DIR;
-    }
-    else if (S_ISLNK(mode))
-    {
-        color = COLOR_LINK;
-    }
-    else if (mode & S_IXUSR || mode & S_IXGRP || mode & S_IXOTH)
-    {
-        color = COLOR_EXEC;
-    }
-
-    printf("%s%s%s", color, entry->name, COLOR_RESET);
+    printf("\n");
 }
 
 int process_directory(const char *path, int print_header)
@@ -186,10 +158,6 @@ int process_directory(const char *path, int print_header)
             {
                 fe.link_target[len] = '\0';
             }
-            else
-            {
-                fe.link_target[0] = '\0';
-            }
         }
 
         entries = realloc(entries, (count + 1) * sizeof(FileEntry));
@@ -214,6 +182,13 @@ int process_directory(const char *path, int print_header)
 
     if (long_format)
     {
+        long long total_blocks = 0;
+        for (int i = 0; i < count; i++)
+        {
+            total_blocks += entries[i].st.st_blocks;
+        }
+        printf("total %lld\n", total_blocks);
+
         for (int i = 0; i < count; i++)
         {
             print_long_entry(&entries[i]);
@@ -221,34 +196,63 @@ int process_directory(const char *path, int print_header)
     }
     else
     {
-        // Определим ширину терминала (упрощённо — 80)
         int terminal_width = 80;
         int max_len = 0;
         for (int i = 0; i < count; i++)
         {
             int len = strlen(entries[i].name);
-            if (len > max_len)
-                max_len = len;
+            if (len > max_len) max_len = len;
         }
         int col_width = max_len + 2;
-        int cols = terminal_width / col_width;
+        int cols = (col_width > 0) ? terminal_width / col_width : 1;
         if (cols < 1) cols = 1;
 
         for (int i = 0; i < count; i++)
         {
-            print_simple_entry(&entries[i]);
-            if (i == count - 1)
-                break;
-            if ((i + 1) % cols == 0)
-                printf("\n");
-            else
-                printf("  ");
+            char *color = "";
+            mode_t mode = entries[i].st.st_mode;
+            if (S_ISDIR(mode))
+                color = COLOR_DIR;
+            else if (S_ISLNK(mode))
+                color = COLOR_LINK;
+            else if (mode & S_IXUSR || mode & S_IXGRP || mode & S_IXOTH)
+                color = COLOR_EXEC;
+
+            printf("%s%s%s", color, entries[i].name, COLOR_RESET);
+            if (i < count - 1)
+            {
+                if ((i + 1) % cols == 0)
+                    printf("\n");
+                else
+                    printf("  ");
+            }
         }
         printf("\n");
     }
 
     free(entries);
     return 0;
+}
+
+void print_simple_entry(FileEntry *entry)
+{
+    char *color = "";
+    mode_t mode = entry->st.st_mode;
+
+    if (S_ISDIR(mode))
+    {
+        color = COLOR_DIR;
+    }
+    else if (S_ISLNK(mode))
+    {
+        color = COLOR_LINK;
+    }
+    else if (mode & S_IXUSR || mode & S_IXGRP || mode & S_IXOTH)
+    {
+        color = COLOR_EXEC;
+    }
+
+    printf("%s%s%s", color, entry->name, COLOR_RESET);
 }
 
 int main(int argc, char *argv[])
