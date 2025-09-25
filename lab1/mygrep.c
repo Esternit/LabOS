@@ -18,11 +18,13 @@ int main(int argc, char *argv[])
     if (file_count == 0)
     {
         char line[MAX_LINE_LENGTH];
+        long line_num = 0;
         while (fgets(line, MAX_LINE_LENGTH, stdin))
         {
+            line_num++;
             if (strstr(line, pattern) != NULL)
             {
-                fputs(line, stdout);
+                printf("%ld:%s", line_num, line);
             }
         }
     }
@@ -38,15 +40,17 @@ int main(int argc, char *argv[])
             }
 
             char line[MAX_LINE_LENGTH];
+            long line_num = 0;
             while (fgets(line, MAX_LINE_LENGTH, fp))
             {
+                line_num++;
                 if (strstr(line, pattern) != NULL)
                 {
                     if (file_count > 1)
                     {
                         printf("%s:", argv[i]);
                     }
-                    fputs(line, stdout);
+                    printf("%ld:%s", line_num, line);
                 }
             }
 
