@@ -10,9 +10,9 @@
 #include <grp.h>
 #include <limits.h>
 
-#define COLOR_DIR "\033[34m"
-#define COLOR_EXEC "\033[32m"
-#define COLOR_LINK "\033[36m"
+#define COLOR_DIR  "\033[01;34m"
+#define COLOR_EXEC "\033[01;32m"
+#define COLOR_LINK "\033[01;36m"
 #define COLOR_RESET "\033[0m"
 
 int show_all = 0;    // параметр -a
