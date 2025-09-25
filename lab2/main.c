@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <getopt.h>
+#include <pwd.h>
+#include <grp.h>
+#include <limits.h>
 
 #define COLOR_DIR "\033[34m"
 #define COLOR_EXEC "\033[32m"
@@ -18,7 +21,7 @@ int long_format = 0; // параметр -l
 typedef struct
 {
     char name[1024];
-    char link_target[1024]; // <-- новое поле
+    char link_target[1024];
     struct stat st;
 } FileEntry;
 
@@ -27,60 +30,43 @@ int compare_names(const void *a, const void *b)
     return strcmp(((FileEntry *)a)->name, ((FileEntry *)b)->name);
 }
 
-#ifdef _WIN32
-typedef int uid_t;
-typedef int gid_t;
-
-// Эмуляция макросов прав доступа для винды, тк они не определены
-#ifndef S_ISLNK
-#define S_ISLNK(mode) 0
-#endif
-
-#ifndef S_IRGRP
-#define S_IRGRP 0
-#define S_IWGRP 0
-#define S_IXGRP 0
-#define S_IROTH 0
-#define S_IWOTH 0
-#define S_IXOTH 0
-#endif
-
-// В Windows нет владельцев в юниксовом формате, поэтому всегда возвращаю 0
+// Получение имени пользователя
 char *get_username(uid_t uid)
 {
+    struct passwd *pw = getpwuid(uid);
+    if (pw)
+        return pw->pw_name;
     static char buf[32];
-    snprintf(buf, sizeof(buf), "%d", 0);
+    snprintf(buf, sizeof(buf), "%d", (int)uid);
     return buf;
 }
 
+// Получение имени группы
 char *get_groupname(gid_t gid)
 {
+    struct group *gr = getgrgid(gid);
+    if (gr)
+        return gr->gr_name;
     static char buf[32];
-    snprintf(buf, sizeof(buf), "%d", 0);
+    snprintf(buf, sizeof(buf), "%d", (int)gid);
     return buf;
 }
-
-#else
-// На Linux можно получить имена владельцев
-char *get_username(uid_t uid)
-{
-    static char buf[32];
-    snprintf(buf, sizeof(buf), "%d", uid);
-    return buf;
-}
-
-char *get_groupname(gid_t gid)
-{
-    static char buf[32];
-    snprintf(buf, sizeof(buf), "%d", gid);
-    return buf;
-}
-#endif
 
 void format_time(time_t t, char *buf)
 {
+    time_t now = time(NULL);
+    double diff = difftime(now, t);
     struct tm *tm = localtime(&t);
-    strftime(buf, 20, "%b %d %H:%M", tm);
+
+    // Если файл старше 6 месяцев (~180 дней = 15552000 сек)
+    if (diff > 15552000 || diff < -15552000)
+    {
+        strftime(buf, 20, "%b %d  %Y", tm);
+    }
+    else
+    {
+        strftime(buf, 20, "%b %d %H:%M", tm);
+    }
 }
 
 void print_long_entry(FileEntry *entry)
@@ -116,18 +102,18 @@ void print_long_entry(FileEntry *entry)
         color = COLOR_EXEC;
     }
 
-    printf("%s%s %3ld %s %s %8ld ",
-           color,
-           perms,
-           (long)entry->st.st_nlink,
-           get_username(entry->st.st_uid),
-           get_groupname(entry->st.st_gid),
-           (long)entry->st.st_size);
+    printf("%s%s", color, perms);
+    printf(" %3ld", (long)entry->st.st_nlink);
+
+    char *user = get_username(entry->st.st_uid);
+    char *group = get_groupname(entry->st.st_gid);
+    printf(" %-8s %-8s", user, group);
+
+    printf(" %8ld ", (long)entry->st.st_size);
 
     format_time(entry->st.st_mtime, time_buf);
     printf("%s %s", time_buf, entry->name);
 
-    // Если это ссылка — выводим цель
     if (S_ISLNK(mode) && entry->link_target[0] != '\0')
     {
         printf(" -> %s", entry->link_target);
@@ -154,16 +140,21 @@ void print_simple_entry(FileEntry *entry)
         color = COLOR_EXEC;
     }
 
-    printf("%s%s%s ", color, entry->name, COLOR_RESET);
+    printf("%s%s%s", color, entry->name, COLOR_RESET);
 }
 
-int process_directory(const char *path)
+int process_directory(const char *path, int print_header)
 {
     DIR *dir = opendir(path);
     if (!dir)
     {
-        perror("opendir");
+        perror(path);
         return 1;
+    }
+
+    if (print_header)
+    {
+        printf("%s:\n", path);
     }
 
     FileEntry *entries = NULL;
@@ -180,12 +171,8 @@ int process_directory(const char *path)
         fe.name[sizeof(fe.name) - 1] = '\0';
         fe.link_target[0] = '\0';
 
-        char full_path[2048];
-#ifdef _WIN32
-        snprintf(full_path, sizeof(full_path), "%s\\%s", path, entry->d_name);
-#else
+        char full_path[PATH_MAX];
         snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
-#endif
 
         if (lstat(full_path, &fe.st) == -1)
         {
@@ -201,7 +188,7 @@ int process_directory(const char *path)
             }
             else
             {
-                fe.link_target[0] = '\0'; // на случай ошибки
+                fe.link_target[0] = '\0';
             }
         }
 
@@ -219,6 +206,7 @@ int process_directory(const char *path)
 
     if (count == 0)
     {
+        free(entries);
         return 0;
     }
 
@@ -233,6 +221,8 @@ int process_directory(const char *path)
     }
     else
     {
+        // Определим ширину терминала (упрощённо — 80)
+        int terminal_width = 80;
         int max_len = 0;
         for (int i = 0; i < count; i++)
         {
@@ -241,18 +231,20 @@ int process_directory(const char *path)
                 max_len = len;
         }
         int col_width = max_len + 2;
-        int cols = 80 / col_width;
-        if (cols < 1)
-            cols = 1;
+        int cols = terminal_width / col_width;
+        if (cols < 1) cols = 1;
 
         for (int i = 0; i < count; i++)
         {
             print_simple_entry(&entries[i]);
+            if (i == count - 1)
+                break;
             if ((i + 1) % cols == 0)
                 printf("\n");
+            else
+                printf("  ");
         }
-        if (count % cols != 0)
-            printf("\n");
+        printf("\n");
     }
 
     free(entries);
@@ -276,16 +268,28 @@ int main(int argc, char *argv[])
             show_all = 1;
             break;
         default:
-            fprintf(stderr, "Usage: %s [-l] [-a] [directory]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-l] [-a] [directory...]\n", argv[0]);
             exit(1);
         }
     }
 
-    char *path = ".";
-    if (optind < argc)
+    // Если аргументов нет — используем текущий каталог
+    if (optind >= argc)
     {
-        path = argv[optind];
+        return process_directory(".", 0);
     }
 
-    return process_directory(path);
+    int num_dirs = argc - optind;
+    int need_header = (num_dirs > 1);
+
+    int exit_code = 0;
+    for (int i = optind; i < argc; i++)
+    {
+        if (num_dirs > 1 && i > optind)
+            printf("\n");
+        if (process_directory(argv[i], need_header) != 0)
+            exit_code = 1;
+    }
+
+    return exit_code;
 }
