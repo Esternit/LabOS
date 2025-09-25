@@ -30,7 +30,6 @@ int compare_names(const void *a, const void *b)
     return strcmp(((FileEntry *)a)->name, ((FileEntry *)b)->name);
 }
 
-// Получение имени пользователя
 char *get_username(uid_t uid)
 {
     struct passwd *pw = getpwuid(uid);
@@ -277,7 +276,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Если аргументов нет — используем текущий каталог
     if (optind >= argc)
     {
         return process_directory(".", 0);
