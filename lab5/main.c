@@ -67,6 +67,37 @@ int add_file_to_archive(const char *arch_name, const char *file_name)
         return 1;
     }
 
+    int arch_check_fd = open(arch_name, O_RDONLY);
+    if (arch_check_fd != -1)
+    {
+        ArchiveHeader hdr;
+        off_t pos = 0;
+        while (1)
+        {
+            if (lseek(arch_check_fd, pos, SEEK_SET) == -1)
+                break;
+            ssize_t n = read(arch_check_fd, &hdr, sizeof(hdr));
+            if (n == 0)
+                break;
+            if (n != sizeof(hdr))
+            {
+                fprintf(stderr, "Corrupted header while checking for duplicates at %ld\n", pos);
+                break;
+            }
+
+            if (strcmp(hdr.filename, file_name) == 0 && !hdr.is_deleted)
+            {
+                fprintf(stderr, "Error: File '%s' already exists in archive '%s'\n", file_name, arch_name);
+                close(arch_check_fd);
+                close(src_fd);
+                return 1;
+            }
+
+            pos += sizeof(hdr) + hdr.file_size;
+        }
+        close(arch_check_fd);
+    }
+
     int arch_fd = open(arch_name, O_RDWR | O_CREAT, 0644);
     if (arch_fd == -1)
     {
