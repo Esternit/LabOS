@@ -11,16 +11,15 @@
 int main() {
     mkfifo(FIFO_NAME, 0666);
 
+    time_t now = time(NULL);
+    char message[256];
+    snprintf(message, sizeof(message), "Time: %sPID: %d\n", ctime(&now), (int)getpid());
+
     int fd = open(FIFO_NAME, O_WRONLY);
     if (fd == -1) {
         perror("open writer");
         exit(EXIT_FAILURE);
     }
-
-    time_t now = time(NULL);
-    char message[256];
-    snprintf(message, sizeof(message),
-             "Time: %sPID: %d\n", ctime(&now), (int)getpid());
 
     if (write(fd, message, strlen(message)) == -1) {
         perror("write");
