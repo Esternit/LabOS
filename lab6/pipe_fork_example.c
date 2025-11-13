@@ -45,7 +45,9 @@ int main() {
         snprintf(message, sizeof(message),
                  "Time: %sPID: %d\n", ctime(&now), (int)getpid());
 
-        write(pipefd[1], message, strlen(message));
+        if (write(pipefd[1], message, strlen(message)) == -1) {
+            perror("write (parent)");
+        }
 
         close(pipefd[1]);
 

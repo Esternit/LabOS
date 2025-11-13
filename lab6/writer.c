@@ -22,7 +22,11 @@ int main() {
     snprintf(message, sizeof(message),
              "Time: %sPID: %d\n", ctime(&now), (int)getpid());
 
-    write(fd, message, strlen(message));
+    if (write(fd, message, strlen(message)) == -1) {
+        perror("write");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
     close(fd);
 
     printf("[Writer] Sent message.\n");
