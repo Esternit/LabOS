@@ -9,7 +9,7 @@
 #define FIFO_NAME "/tmp/example_fifo"
 
 int main() {
-    sleep(10);
+    sleep(12);
 
     int fd = open(FIFO_NAME, O_RDONLY);
     if (fd == -1) {
