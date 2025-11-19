@@ -11,6 +11,12 @@
 #include <sys/stat.h>
 #include <semaphore.h>
 
+typedef struct
+{
+    long version;
+    char data[200];
+} SharedData;
+
 #define SHM_NAME "/my_shm_time"
 #define SEM_NAME "/my_sem_time"
 #define BUF_SIZE 256
@@ -56,6 +62,9 @@ int main()
 
     printf("Sender started (PID: %d). Sending time every 2 seconds...\n", my_pid);
 
+    SharedData *shared = (SharedData *)shm_ptr;
+    long counter = 0;
+
     while (1)
     {
         clock_gettime(CLOCK_REALTIME, &ts);
@@ -64,10 +73,11 @@ int main()
         localtime_r(&ts.tv_sec, &tm_info);
         strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_info);
 
-        snprintf(shm_ptr, BUF_SIZE, "PID:%d TIME:%s", my_pid, buf);
+        snprintf(shared->data, sizeof(shared->data), "PID:%d TIME:%s", my_pid, buf);
+        __sync_synchronize();
+        shared->version = ++counter;
 
         sem_post(sem);
-
         sleep(2);
     }
 

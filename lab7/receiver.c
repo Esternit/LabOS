@@ -10,6 +10,12 @@
 #include <sys/stat.h>
 #include <semaphore.h>
 
+typedef struct
+{
+    long version;
+    char data[200];
+} SharedData;
+
 #define SHM_NAME "/my_shm_time"
 #define SEM_NAME "/my_sem_time"
 #define BUF_SIZE 256
@@ -41,22 +47,25 @@ int main()
     pid_t my_pid = getpid();
     printf("Receiver started (PID: %d)\n", my_pid);
 
+    SharedData *shared = (SharedData *)shm_ptr;
+    long last_version = -1;
+
     while (1)
     {
-        if (sem_wait(sem) == -1)
+        sem_wait(sem);
+        if (shared->version != last_version)
         {
-            perror("sem_wait");
-            break;
+            last_version = shared->version;
+
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            struct tm tm_info;
+            localtime_r(&ts.tv_sec, &tm_info);
+            char my_time[64];
+            strftime(my_time, sizeof(my_time), "%Y-%m-%d %H:%M:%S", &tm_info);
+
+            printf("[Receiver PID:%d | Time:%s] Received: %s\n", my_pid, my_time, shared->data);
         }
-
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        struct tm tm_info;
-        localtime_r(&ts.tv_sec, &tm_info);
-        char my_time[64];
-        strftime(my_time, sizeof(my_time), "%Y-%m-%d %H:%M:%S", &tm_info);
-
-        printf("[Receiver PID:%d | Time:%s] Received: %s\n", my_pid, my_time, shm_ptr);
     }
 
     munmap(shm_ptr, BUF_SIZE);
