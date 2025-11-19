@@ -1,3 +1,6 @@
+#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -8,11 +11,13 @@
 
 #define FIFO_NAME "/tmp/example_fifo"
 
-int main() {
+int main()
+{
     sleep(12);
 
     int fd = open(FIFO_NAME, O_RDONLY);
-    if (fd == -1) {
+    if (fd == -1)
+    {
         perror("open reader");
         exit(EXIT_FAILURE);
     }
@@ -22,7 +27,8 @@ int main() {
 
     char buffer[256];
     ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
-    if (n > 0) {
+    if (n > 0)
+    {
         buffer[n] = '\0';
         printf("[Reader] Received: %s", buffer);
     }
