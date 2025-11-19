@@ -59,7 +59,7 @@ int main()
     while (1)
     {
         clock_gettime(CLOCK_REALTIME, &ts);
-        char buf[BUF_SIZE];
+        char buf[64];
         struct tm tm_info;
         localtime_r(&ts.tv_sec, &tm_info);
         strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_info);
