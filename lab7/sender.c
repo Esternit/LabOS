@@ -86,5 +86,8 @@ int main()
     sem_close(sem);
     sem_close(sem_check);
     sem_unlink(SEM_NAME "_lock");
+
+    shm_unlink(SHM_NAME);
+
     return 0;
 }
