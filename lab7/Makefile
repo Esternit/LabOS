@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O2
-LDFLAGS = -lrt -lpthread
+LDFLAGS = -lrt
 
 TARGETS = sender receiver
 
@@ -8,11 +8,14 @@ TARGETS = sender receiver
 
 all: $(TARGETS)
 
-sender: sender.c
+sender: sender.c common.h
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
-receiver: receiver.c
+receiver: receiver.c common.h
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) /tmp/sender.lock /tmp/time_data.txt
+
+veryclean: clean
+	rm -f *.o
