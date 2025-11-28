@@ -13,39 +13,56 @@
 #include "common.h"
 
 static int lock_fd = -1;
+static int shm_fd = -1;
+static SharedData *shared = MAP_FAILED;
 
 void cleanup(int sig)
 {
     (void)sig;
+
+    if (shared != MAP_FAILED)
+    {
+        if (munmap(shared, sizeof(SharedData)) == -1)
+            perror("munmap in cleanup");
+        shared = MAP_FAILED;
+    }
+
+    if (shm_fd != -1)
+    {
+        if (close(shm_fd) == -1)
+            perror("close shm_fd in cleanup");
+        shm_fd = -1;
+    }
+
     if (lock_fd != -1)
     {
         close(lock_fd);
         unlink(LOCK_FILE);
+        lock_fd = -1;
     }
-    shm_unlink(SHM_NAME);
+
+    if (shm_unlink(SHM_NAME) == -1 && errno != ENOENT)
+        perror("shm_unlink");
+
     exit(EXIT_SUCCESS);
 }
 
-int main()
+int main(void)
 {
     lock_fd = open(LOCK_FILE, O_CREAT | O_EXCL | O_RDWR, 0644);
     if (lock_fd == -1)
     {
         if (errno == EEXIST)
-        {
             fprintf(stderr, "Sender is already running!\n");
-        }
         else
-        {
             perror("open lock file");
-        }
         exit(EXIT_FAILURE);
     }
 
     signal(SIGINT, cleanup);
     signal(SIGTERM, cleanup);
 
-    int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+    shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
     if (shm_fd == -1)
     {
         perror("shm_open");
@@ -56,16 +73,14 @@ int main()
     if (ftruncate(shm_fd, sizeof(SharedData)) == -1)
     {
         perror("ftruncate");
-        close(shm_fd);
         cleanup(0);
         exit(EXIT_FAILURE);
     }
 
-    SharedData *shared = mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    shared = mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (shared == MAP_FAILED)
     {
         perror("mmap");
-        close(shm_fd);
         cleanup(0);
         exit(EXIT_FAILURE);
     }
@@ -85,4 +100,6 @@ int main()
         snprintf(shared->data, BUF_SIZE, "PID:%d TIME:%s", shared->sender_pid, time_str);
         sleep(2);
     }
+
+    return 0;
 }

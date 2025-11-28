@@ -6,11 +6,23 @@
 #include <sys/mman.h>
 #include <time.h>
 #include <string.h>
+#include <signal.h>
 
 #include "common.h"
 
-int main()
+static volatile sig_atomic_t keep_running = 1;
+
+void signal_handler(int sig)
 {
+    (void)sig;
+    keep_running = 0;
+}
+
+int main(void)
+{
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+
     int shm_fd = shm_open(SHM_NAME, O_RDONLY, 0666);
     if (shm_fd == -1)
     {
@@ -31,11 +43,12 @@ int main()
 
     printf("Receiver (PID: %d) started, waiting for data...\n", my_pid);
 
-    while (1)
+    while (keep_running)
     {
         if (strlen(shared->data) > 0 && strcmp(shared->data, last_data) != 0)
         {
-            strcpy(last_data, shared->data);
+            strncpy(last_data, shared->data, BUF_SIZE - 1);
+            last_data[BUF_SIZE - 1] = '\0';
 
             struct timespec ts;
             clock_gettime(CLOCK_REALTIME, &ts);
@@ -49,7 +62,13 @@ int main()
         sleep(1);
     }
 
-    munmap(shared, sizeof(SharedData));
-    close(shm_fd);
-    return 0;
+    printf("Receiver shutting down...\n");
+
+    if (munmap(shared, sizeof(SharedData)) == -1)
+        perror("munmap");
+
+    if (close(shm_fd) == -1)
+        perror("close shm_fd");
+
+    return EXIT_SUCCESS;
 }
