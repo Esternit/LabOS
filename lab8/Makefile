@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -O2 -pthread
+CFLAGS = -std=gnu11 -Wall -Wextra -O2 -pthread
 TARGET = reader_writer
 
 all: $(TARGET)
