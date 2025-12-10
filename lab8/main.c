@@ -1,9 +1,9 @@
-#define _XOPEN_SOURCE 700
+#define _POSIX_C_SOURCE 199309L
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <time.h>
 #include <pthread.h>
 
 #define NUM_READERS 10
@@ -13,6 +13,13 @@ char shared_buffer[BUFFER_SIZE] = "0";
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 volatile int writer_done = 0;
 
+void usleep_compat(unsigned long usec) {
+    struct timespec ts;
+    ts.tv_sec = usec / 1000000UL;
+    ts.tv_nsec = (usec % 1000000UL) * 1000UL;
+    nanosleep(&ts, NULL);
+}
+
 void* writer_thread(void* arg) {
     (void)arg;
     int counter = 1;
@@ -20,7 +27,7 @@ void* writer_thread(void* arg) {
         pthread_mutex_lock(&mutex);
         snprintf(shared_buffer, BUFFER_SIZE, "%d", counter);
         pthread_mutex_unlock(&mutex);
-        usleep(100000);
+        usleep_compat(100000);
         counter++;
     }
     writer_done = 1;
@@ -33,7 +40,7 @@ void* reader_thread(void* arg) {
         pthread_mutex_lock(&mutex);
         printf("Reader %ld: %s\n", tid, shared_buffer);
         pthread_mutex_unlock(&mutex);
-        usleep(50000); // 50 мс
+        usleep_compat(50000);
     }
     return NULL;
 }
@@ -51,7 +58,7 @@ int main() {
 
     if (pthread_create(&writer, NULL, writer_thread, NULL) != 0) {
         perror("Failed to create writer thread");
-        exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
     }
 
     pthread_join(writer, NULL);
