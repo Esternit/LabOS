@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 700
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,13 +14,14 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 volatile int writer_done = 0;
 
 void* writer_thread(void* arg) {
+    (void)arg;
     int counter = 1;
     while (counter <= 20) {
         pthread_mutex_lock(&mutex);
         snprintf(shared_buffer, BUFFER_SIZE, "%d", counter);
         pthread_mutex_unlock(&mutex);
-        counter++;
         usleep(100000);
+        counter++;
     }
     writer_done = 1;
     return NULL;
@@ -30,7 +33,7 @@ void* reader_thread(void* arg) {
         pthread_mutex_lock(&mutex);
         printf("Reader %ld: %s\n", tid, shared_buffer);
         pthread_mutex_unlock(&mutex);
-        usleep(50000);
+        usleep(50000); // 50 мс
     }
     return NULL;
 }
