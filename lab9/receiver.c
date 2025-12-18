@@ -1,46 +1,88 @@
-#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <semaphore.h>
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
+#include <errno.h>
 
-#define SHM_NAME "/my_shm_time"
-#define SEM_NAME  "/my_sem_sync"
-#define BUF_SIZE  256
+#define SHM_SIZE 256
+#define KEY_FILE "ipc92.key"
+
+static int shmid = -1;
+static int semid = -1;
+static char *shared_buf = NULL;
+static volatile int stop = 0;
+
+int sem_lock(int semid) {
+    struct sembuf sb = {0, -1, SEM_UNDO};
+    return semop(semid, &sb, 1);
+}
+
+int sem_unlock(int semid) {
+    struct sembuf sb = {0, 1, SEM_UNDO};
+    return semop(semid, &sb, 1);
+}
+
+void cleanup(int sig) {
+    (void)sig;
+    stop = 1;
+    if (shared_buf && shared_buf != (void*)-1) {
+        shmdt(shared_buf);
+    }
+    unlink(KEY_FILE);
+    exit(EXIT_SUCCESS);
+}
 
 int main() {
-    int shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
-    if (shm_fd == -1) {
-        perror("shm_open receiver (run sender first!)");
+    signal(SIGINT, cleanup);
+    signal(SIGTERM, cleanup);
+
+    while (access(KEY_FILE, F_OK) == -1) {
+        sleep(1);
+    }
+
+    key_t shm_key = ftok(KEY_FILE, 'M');
+    key_t sem_key = ftok(KEY_FILE, 'S');
+    if (shm_key == -1 || sem_key == -1) {
+        perror("ftok");
         exit(EXIT_FAILURE);
     }
 
-    char* shared_buf = mmap(NULL, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if (shared_buf == MAP_FAILED) {
-        perror("mmap receiver");
+    shmid = shmget(shm_key, SHM_SIZE, 0666);
+    if (shmid == -1) {
+        perror("shmget (receiver)");
         exit(EXIT_FAILURE);
     }
 
-    sem_t* sem = sem_open(SEM_NAME, 0);
-    if (sem == SEM_FAILED) {
-        perror("sem_open receiver");
+    semid = semget(sem_key, 1, 0666);
+    if (semid == -1) {
+        perror("semget (receiver)");
+        exit(EXIT_FAILURE);
+    }
+
+    shared_buf = (char*)shmat(shmid, NULL, 0);
+    if (shared_buf == (void*)-1) {
+        perror("shmat (receiver)");
         exit(EXIT_FAILURE);
     }
 
     printf("Receiver PID: %d\n", (int)getpid());
-    while (1) {
-        sem_wait(sem);
+
+    while (!stop) {
+        if (sem_lock(semid) == -1) {
+            perror("receiver sem_lock");
+            break;
+        }
         printf("Receiver PID: %d | Received: %s\n", (int)getpid(), shared_buf);
-        sem_post(sem);
+        if (sem_unlock(semid) == -1) {
+            perror("receiver sem_unlock");
+        }
         sleep(1);
     }
 
-    munmap(shared_buf, BUF_SIZE);
-    sem_close(sem);
+    cleanup(0);
     return 0;
 }

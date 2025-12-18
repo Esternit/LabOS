@@ -1,6 +1,6 @@
 CC      ?= gcc
-CFLAGS  := -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=200809L
-LDFLAGS := -pthread -lrt
+CFLAGS  := -std=c11 -Wall -Wextra
+LDFLAGS := -pthread
 
 .PHONY: all clean
 
@@ -10,10 +10,10 @@ lab9_1: lab9_1.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 sender: sender.c
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $<
 
 receiver: receiver.c
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $<
 
 clean:
-	rm -f lab9_1 sender receiver
+	rm -f lab9_1 sender receiver ipc91.key ipc92.key
