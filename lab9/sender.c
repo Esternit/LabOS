@@ -16,7 +16,11 @@
 int main() {
     int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
     if (shm_fd == -1) {
-        perror("shm_open sender");
+        if (errno == EEXIST) {
+            fprintf(stderr, "Sender already running! Exiting.\n");
+            exit(EXIT_FAILURE);
+        }
+        perror("shm_open");
         exit(EXIT_FAILURE);
     }
     if (ftruncate(shm_fd, BUF_SIZE) == -1) {
