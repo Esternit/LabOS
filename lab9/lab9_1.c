@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
 
@@ -12,8 +13,8 @@ char shared_buffer[BUFFER_SIZE] = "0";
 sem_t mutex_sem;
 
 void* writer_thread(void* arg) {
-    int counter = 1;
     (void)arg;
+    int counter = 1;
     while (counter <= 10) {
         sem_wait(&mutex_sem);
         snprintf(shared_buffer, BUFFER_SIZE, "%d", counter);
@@ -25,13 +26,17 @@ void* writer_thread(void* arg) {
 }
 
 void* reader_thread(void* arg) {
+    (void)arg;
     pthread_t tid = pthread_self();
     int i = 0;
     while (i < 12) {
         sem_wait(&mutex_sem);
         printf("Reader TID=%lu: %s\n", (unsigned long)tid, shared_buffer);
         sem_post(&mutex_sem);
-        usleep(800000);
+
+        struct timespec ts = { .tv_sec = 0, .tv_nsec = 800000000L };
+        nanosleep(&ts, NULL);
+
         i++;
     }
     return NULL;
