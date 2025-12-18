@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <semaphore.h>
@@ -17,11 +18,12 @@ int main() {
     int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
     if (shm_fd == -1) {
         if (errno == EEXIST) {
-            fprintf(stderr, "Sender already running! Exiting.\n");
+            fprintf(stderr, "Error: sender already running (shared memory exists).\n");
+            exit(EXIT_FAILURE);
+        } else {
+            perror("shm_open");
             exit(EXIT_FAILURE);
         }
-        perror("shm_open");
-        exit(EXIT_FAILURE);
     }
     if (ftruncate(shm_fd, BUF_SIZE) == -1) {
         perror("ftruncate");
