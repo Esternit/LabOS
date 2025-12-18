@@ -7,6 +7,7 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <pthread.h>
+#include <time.h> 
 #include <errno.h>
 
 #define SHM_SIZE 32
@@ -74,7 +75,8 @@ void* reader_thread(void* arg) {
         if (sem_unlock(semid) == -1) {
             perror("reader sem_unlock");
         }
-        usleep(800000);
+        struct timespec ts = { .tv_sec = 0, .tv_nsec = 800000000L };
+        nanosleep(&ts, NULL);
         count++;
     }
     return NULL;
