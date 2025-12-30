@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +32,7 @@ void* reader_thread(void* arg) {
 }
 
 void* writer_thread(void* arg) {
+    (void)arg;
     for (int i = 1; i <= 10; ++i) {
         pthread_rwlock_wrlock(&rwlock);
         snprintf(shared_array, ARRAY_SIZE, "Record #%d", i);
