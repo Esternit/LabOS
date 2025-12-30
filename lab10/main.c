@@ -1,10 +1,10 @@
 #define _POSIX_C_SOURCE 200809L
-#define _XOPEN_SOURCE 700
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 #include <string.h>
 
 #define NUM_READERS 10
@@ -13,6 +13,13 @@
 char shared_array[ARRAY_SIZE];
 volatile int writer_counter = 0;
 pthread_rwlock_t rwlock = PTHREAD_RWLOCK_INITIALIZER;
+
+void my_usleep(useconds_t usec) {
+    struct timespec ts;
+    ts.tv_sec = usec / 1000000;
+    ts.tv_nsec = (usec % 1000000) * 1000;
+    nanosleep(&ts, NULL);
+}
 
 void* reader_thread(void* arg) {
     long id = (long)arg;
@@ -25,7 +32,7 @@ void* reader_thread(void* arg) {
         pthread_rwlock_unlock(&rwlock);
 
         printf("Reader %ld: %s\n", id, local_copy);
-        usleep(100000);
+        my_usleep(100000);
     }
 
     return NULL;
@@ -39,7 +46,7 @@ void* writer_thread(void* arg) {
         writer_counter = i;
         pthread_rwlock_unlock(&rwlock);
 
-        usleep(200000);
+        my_usleep(200000);
     }
     return NULL;
 }
