@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -std=c99 -Wall -Wextra -O2 -pthread
 TARGET = rwlock_example
-SRC = rwlock_example.c
+SRC = main.c
 
 .PHONY: all clean run
 
