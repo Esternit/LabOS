@@ -71,15 +71,24 @@ int main() {
 
     printf("Receiver PID: %d\n", (int)getpid());
 
+    char last_message[SHM_SIZE] = {0};
+
     while (!stop) {
         if (sem_lock(semid) == -1) {
             perror("receiver sem_lock");
             break;
         }
-        printf("Receiver PID: %d | Received: %s\n", (int)getpid(), shared_buf);
+
+        if (strcmp(shared_buf, last_message) != 0) {
+            printf("Receiver PID: %d | Received: %s\n", (int)getpid(), shared_buf);
+            strncpy(last_message, shared_buf, sizeof(last_message) - 1);
+            last_message[sizeof(last_message) - 1] = '\0';
+        }
+
         if (sem_unlock(semid) == -1) {
             perror("receiver sem_unlock");
         }
+
         sleep(1);
     }
 
