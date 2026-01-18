@@ -74,8 +74,6 @@ int main() {
         pthread_join(readers[i], NULL);
     }
     pthread_join(writer, NULL);
-
-    pthread_rwlock_destroy(&rwlock);
-
+    
     return 0;
 }

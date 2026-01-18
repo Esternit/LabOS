@@ -119,9 +119,6 @@ int main() {
         pthread_join(readers[i], NULL);
     }
     pthread_join(writer, NULL);
-
-    pthread_cond_destroy(&cond_updated);
-    pthread_cond_destroy(&cond_readers_done);
-
+    
     return 0;
 }
